@@ -1,0 +1,334 @@
+/* KPI Dashboard Styles */
+.dashboard-container {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-xl);
+    padding: var(--space-xl);
+}
+
+/* Risk Overview */
+.risk-overview {
+    display: grid;
+    grid-template-columns: 1fr 1.2fr 1fr;
+    gap: var(--space-xl);
+    padding: var(--space-xl);
+    position: relative;
+    overflow: hidden;
+}
+
+.risk-overview::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.06;
+}
+
+.risk-overview.risk-low::before {
+    background: linear-gradient(135deg, #10b981, transparent);
+}
+
+.risk-overview.risk-medium::before {
+    background: linear-gradient(135deg, #f59e0b, transparent);
+}
+
+.risk-overview.risk-high::before {
+    background: linear-gradient(135deg, #ef4444, transparent);
+}
+
+.risk-overview-left {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+}
+
+.risk-level-badge {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.risk-level-value {
+    font-size: 2.2rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    line-height: 1;
+}
+
+.risk-low .risk-level-value {
+    color: #10b981;
+}
+
+.risk-medium .risk-level-value {
+    color: #f59e0b;
+}
+
+.risk-high .risk-level-value {
+    color: #ef4444;
+}
+
+.risk-confidence {
+    font-size: 0.78rem;
+    color: var(--color-text-muted);
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    flex-wrap: wrap;
+}
+
+.risk-model-tag {
+    padding: 2px 8px;
+    background: var(--color-bg-glass);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    font-size: 0.65rem;
+    font-family: var(--font-mono);
+    color: var(--color-text-accent);
+}
+
+/* Risk Probabilities */
+.risk-probabilities {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    justify-content: center;
+}
+
+.risk-prob-item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.risk-prob-bar-bg {
+    height: 8px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: var(--radius-full);
+    overflow: hidden;
+}
+
+.risk-prob-bar-fill {
+    height: 100%;
+    border-radius: var(--radius-full);
+    transition: width 1s ease-out;
+}
+
+.risk-prob-label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.72rem;
+    color: var(--color-text-muted);
+    font-weight: 500;
+}
+
+/* Revenue Impact */
+.revenue-impact-card {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-md);
+    padding: var(--space-md);
+    background: rgba(239, 68, 68, 0.06);
+    border: 1px solid rgba(239, 68, 68, 0.12);
+    border-radius: var(--radius-md);
+    color: var(--color-critical);
+}
+
+.revenue-impact-card>div {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.revenue-label {
+    font-size: 0.72rem;
+    font-weight: 500;
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.revenue-value {
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: var(--color-critical);
+    line-height: 1.2;
+}
+
+.revenue-recovery {
+    font-size: 0.72rem;
+    color: var(--color-healthy);
+}
+
+/* KPI Cards Grid */
+.kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: var(--space-md);
+}
+
+.kpi-card {
+    padding: var(--space-lg);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+    opacity: 0;
+}
+
+.kpi-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.kpi-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: var(--radius-sm);
+}
+
+.kpi-icon.status-healthy {
+    background: var(--color-healthy-bg);
+    color: var(--color-healthy);
+}
+
+.kpi-icon.status-warning {
+    background: var(--color-warning-bg);
+    color: var(--color-warning);
+}
+
+.kpi-icon.status-critical {
+    background: var(--color-critical-bg);
+    color: var(--color-critical);
+}
+
+.kpi-card-value {
+    display: flex;
+    align-items: baseline;
+    gap: 4px;
+}
+
+.kpi-number {
+    font-size: 1.8rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 1;
+    color: var(--color-text-primary);
+}
+
+.kpi-unit {
+    font-size: 0.8rem;
+    color: var(--color-text-muted);
+    font-weight: 500;
+}
+
+.kpi-card-label {
+    font-size: 0.72rem;
+    color: var(--color-text-muted);
+    line-height: 1.4;
+}
+
+.kpi-progress-bar {
+    height: 4px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: var(--radius-full);
+    overflow: hidden;
+    margin-top: 4px;
+}
+
+.kpi-progress-fill {
+    height: 100%;
+    border-radius: var(--radius-full);
+    transition: width 1.2s ease-out;
+    animation: progressFill 1.2s ease-out;
+}
+
+.kpi-progress-fill.status-healthy {
+    background: var(--color-healthy);
+}
+
+.kpi-progress-fill.status-warning {
+    background: var(--color-warning);
+}
+
+.kpi-progress-fill.status-critical {
+    background: var(--color-critical);
+}
+
+.kpi-target {
+    font-size: 0.65rem;
+    color: var(--color-text-muted);
+    font-family: var(--font-mono);
+}
+
+/* Charts Grid */
+.charts-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--space-lg);
+}
+
+.chart-card {
+    padding: var(--space-lg);
+}
+
+.chart-card h4 {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--color-text-primary);
+    margin-bottom: var(--space-md);
+}
+
+.chart-wrapper {
+    width: 100%;
+}
+
+/* Chart Tooltip */
+.chart-tooltip {
+    background: rgba(15, 23, 42, 0.95);
+    border: 1px solid var(--border-color-hover);
+    border-radius: var(--radius-sm);
+    padding: 10px 14px;
+    font-size: 0.78rem;
+    backdrop-filter: blur(12px);
+}
+
+.tooltip-label {
+    font-weight: 600;
+    color: var(--color-text-primary) !important;
+    margin-bottom: 4px;
+}
+
+/* Responsive */
+@media (max-width: 1200px) {
+    .kpi-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 900px) {
+    .risk-overview {
+        grid-template-columns: 1fr;
+    }
+
+    .charts-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 640px) {
+    .kpi-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .dashboard-container {
+        padding: var(--space-md);
+    }
+}
