@@ -1,6 +1,7 @@
 """
 JWT Authentication Module
 Handles user registration, login, logout, and route protection.
+STRICT MODE: No demo/public access. All routes require authentication.
 """
 
 import os
@@ -40,29 +41,24 @@ def decode_token(token):
 
 
 def token_required(f):
-    """Decorator to protect routes with JWT authentication."""
+    """Decorator to protect routes with JWT authentication. STRICT — no bypass."""
     @wraps(f)
     def decorated(*args, **kwargs):
-        # Allow demo mode (no auth required if DEMO_MODE is set)
-        if os.environ.get('DEMO_MODE', 'true').lower() == 'true':
-            request.current_user = None
-            return f(*args, **kwargs)
-
         token = None
         auth_header = request.headers.get('Authorization', '')
         if auth_header.startswith('Bearer '):
             token = auth_header[7:]
 
         if not token:
-            return jsonify({'error': 'Authentication required', 'code': 'AUTH_REQUIRED'}), 401
+            return jsonify({'error': 'Authentication required. Please sign in.', 'code': 'AUTH_REQUIRED'}), 401
 
         payload = decode_token(token)
         if not payload:
-            return jsonify({'error': 'Token expired or invalid', 'code': 'TOKEN_INVALID'}), 401
+            return jsonify({'error': 'Session expired. Please sign in again.', 'code': 'TOKEN_INVALID'}), 401
 
         user = User.query.get(payload['user_id'])
         if not user or not user.is_active:
-            return jsonify({'error': 'User not found or inactive', 'code': 'USER_INVALID'}), 401
+            return jsonify({'error': 'User not found or deactivated.', 'code': 'USER_INVALID'}), 401
 
         request.current_user = user
         return f(*args, **kwargs)
@@ -70,14 +66,12 @@ def token_required(f):
 
 
 def admin_required(f):
-    """Decorator to restrict routes to admin users only."""
+    """Decorator to restrict routes to admin users only. STRICT — no bypass."""
     @wraps(f)
     @token_required
     def decorated(*args, **kwargs):
-        if os.environ.get('DEMO_MODE', 'true').lower() == 'true':
-            return f(*args, **kwargs)
         if not request.current_user or request.current_user.role != 'admin':
-            return jsonify({'error': 'Admin access required'}), 403
+            return jsonify({'error': 'Admin access required. Your role does not have permission.'}), 403
         return f(*args, **kwargs)
     return decorated
 
@@ -146,6 +140,8 @@ def login():
     ).first()
 
     if not user:
+        AuditLog.log('login_failed', f'Failed login attempt for {identifier}',
+                     ip_address=request.remote_addr)
         return jsonify({'error': 'Invalid credentials'}), 401
 
     if not bcrypt.checkpw(password.encode('utf-8'), user.password_hash.encode('utf-8')):
@@ -174,16 +170,13 @@ def login():
 @token_required
 def get_current_user():
     """Get the current authenticated user."""
-    if request.current_user:
-        return jsonify({'user': request.current_user.to_dict()})
-    return jsonify({'user': None, 'demo_mode': True})
+    return jsonify({'user': request.current_user.to_dict()})
 
 
 @auth_bp.route('/logout', methods=['POST'])
 @token_required
 def logout():
     """Logout (client-side token removal, server-side audit log)."""
-    if request.current_user:
-        AuditLog.log('logout', f'User {request.current_user.username} logged out',
-                     user_id=request.current_user.id, ip_address=request.remote_addr)
+    AuditLog.log('logout', f'User {request.current_user.username} logged out',
+                 user_id=request.current_user.id, ip_address=request.remote_addr)
     return jsonify({'message': 'Logged out successfully'})

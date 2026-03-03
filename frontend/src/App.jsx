@@ -13,7 +13,7 @@ import AdminDashboard from './components/AdminDashboard';
 import LoginPage from './components/LoginPage';
 import {
   analyzeShelfImage, getHealth, loginUser, registerUser,
-  logoutUser, getStores, getToken, setToken,
+  logoutUser, getStores, getToken, setToken, setLogoutCallback,
 } from './services/api';
 import './App.css';
 
@@ -33,44 +33,59 @@ function App() {
   const [serverStatus, setServerStatus] = useState('checking');
   const [analysisCount, setAnalysisCount] = useState(0);
 
-  // Auth state
+  // Auth state — NO demo mode
   const [user, setUser] = useState(null);
-  const [isDemo, setIsDemo] = useState(false);
-  const [showLogin, setShowLogin] = useState(false);
+  const [authChecked, setAuthChecked] = useState(false);
 
   // Store & detection mode
   const [stores, setStores] = useState([]);
   const [selectedStore, setSelectedStore] = useState('');
   const [detectionMode, setDetectionMode] = useState('opencv');
 
-  // Auto-login from saved token or default to demo
+  // Register the logout callback so 401 responses auto-redirect to login
+  useEffect(() => {
+    setLogoutCallback(() => {
+      setUser(null);
+      setAnalysisResult(null);
+      setActiveTab('upload');
+    });
+  }, []);
+
+  // On mount, check if we have a valid token
   useEffect(() => {
     const token = getToken();
     if (token) {
-      // Try to validate token
       import('./services/api').then(({ getCurrentUser }) => {
-        getCurrentUser().then((data) => {
-          if (data.user) {
-            setUser(data.user);
-          } else {
-            setIsDemo(true);
-          }
-        }).catch(() => {
-          setToken(null);
-          setIsDemo(true);
-        });
+        getCurrentUser()
+          .then((data) => {
+            if (data.user) {
+              setUser(data.user);
+            } else {
+              setToken(null);
+            }
+          })
+          .catch(() => {
+            setToken(null);
+          })
+          .finally(() => {
+            setAuthChecked(true);
+          });
       });
     } else {
-      setIsDemo(true);
+      setAuthChecked(true);
     }
   }, []);
 
-  // Load stores
+  // Load stores after login
   useEffect(() => {
-    getStores().then((data) => setStores(data.stores || [])).catch(() => { });
-  }, []);
+    if (user) {
+      getStores()
+        .then((data) => setStores(data.stores || []))
+        .catch(() => { });
+    }
+  }, [user]);
 
-  // Check server health with retries (handles Render free-tier cold starts)
+  // Check server health
   useEffect(() => {
     let cancelled = false;
 
@@ -101,20 +116,16 @@ function App() {
     if (mode === 'login') {
       const data = await loginUser(credentials);
       setUser(data.user);
-      setIsDemo(false);
-      setShowLogin(false);
     } else {
       const data = await registerUser(credentials);
       setUser(data.user);
-      setIsDemo(false);
-      setShowLogin(false);
     }
   };
 
   const handleLogout = async () => {
     await logoutUser();
     setUser(null);
-    setIsDemo(true);
+    setAnalysisResult(null);
     setActiveTab('upload');
   };
 
@@ -144,12 +155,26 @@ function App() {
     setActiveTab('upload');
   };
 
-  // Show login page if requested
-  if (showLogin && !user) {
-    return <LoginPage onLogin={handleLogin} onSkip={() => { setIsDemo(true); setShowLogin(false); }} />;
+  // Show loading while checking auth
+  if (!authChecked) {
+    return (
+      <div className="app-root">
+        <div className="bg-gradient-orb orb-1" />
+        <div className="bg-gradient-orb orb-2" />
+        <div className="auth-loading">
+          <div className="loading-spinner" />
+          <p>Checking authentication...</p>
+        </div>
+      </div>
+    );
   }
 
-  const isAdmin = user?.role === 'admin' || isDemo;
+  // NOT LOGGED IN → Force login page (no bypass, no demo)
+  if (!user) {
+    return <LoginPage onLogin={handleLogin} />;
+  }
+
+  const isAdmin = user.role === 'admin';
 
   return (
     <div className="app-root">
@@ -223,22 +248,16 @@ function App() {
             </button>
           )}
 
-          {/* User / Auth */}
-          {user ? (
-            <div className="user-menu">
-              <span className="user-badge">
-                <Shield size={12} />
-                {user.username} ({user.role})
-              </span>
-              <button className="logout-btn" onClick={handleLogout}>
-                <LogOut size={14} />
-              </button>
-            </div>
-          ) : (
-            <button className="login-header-btn" onClick={() => setShowLogin(true)}>
-              Sign In
+          {/* User info + Logout */}
+          <div className="user-menu">
+            <span className="user-badge">
+              <Shield size={12} />
+              {user.username} ({user.role})
+            </span>
+            <button className="logout-btn" onClick={handleLogout} title="Sign Out">
+              <LogOut size={14} />
             </button>
-          )}
+          </div>
         </div>
       </header>
 
@@ -329,7 +348,7 @@ function App() {
                 </div>
               )}
 
-              {/* Feature Highlights (shown when no result yet) */}
+              {/* Feature Highlights */}
               {!analysisResult && !isLoading && (
                 <div className="features-grid">
                   <div className="feature-card glass-card animate-fade-in stagger-1">
@@ -357,8 +376,8 @@ function App() {
                     <div className="feature-icon" style={{ background: 'rgba(245, 158, 11, 0.1)', color: '#fbbf24' }}>
                       <Clock size={24} />
                     </div>
-                    <h4>Enterprise Features</h4>
-                    <p>Multi-store management, historical analytics, audit logging, and role-based access</p>
+                    <h4>Your Data</h4>
+                    <p>All uploads, KPIs, and reports are private to your account — secure and isolated</p>
                   </div>
                 </div>
               )}

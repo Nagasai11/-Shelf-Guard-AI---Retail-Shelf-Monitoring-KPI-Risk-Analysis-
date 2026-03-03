@@ -1,8 +1,11 @@
 """
 Retail Shelf Monitoring & KPI Risk Analysis - Flask Backend
 Main application server with REST API endpoints.
-Serves both the API and the production React frontend.
-Enterprise Edition: DB persistence, auth, multi-store, audit, YOLOv8, Swagger.
+Enterprise Edition: Strict auth, user data isolation, DB persistence,
+multi-store, audit logs, YOLOv8, Swagger.
+
+SECURITY: All data routes require authentication.
+Each user sees ONLY their own data. Admins can see all.
 """
 
 import os
@@ -47,9 +50,6 @@ detector_yolo = YOLOShelfDetector()
 kpi_engine = KPIEngine()
 sales_provider = SalesDataProvider()
 
-# Legacy in-memory storage (kept for backward compatibility)
-analysis_history = []
-
 # ---- Swagger API Documentation ----
 SWAGGER_URL = '/api/docs'
 API_URL = '/api/swagger.json'
@@ -65,51 +65,64 @@ def swagger_spec():
         "info": {
             "title": "ShelfGuard AI API",
             "version": "2.0.0",
-            "description": "Retail Shelf Monitoring & KPI Risk Analysis API"
+            "description": "Retail Shelf Monitoring & KPI Risk Analysis API — Strict Auth"
         },
+        "components": {
+            "securitySchemes": {
+                "bearerAuth": {
+                    "type": "http",
+                    "scheme": "bearer",
+                    "bearerFormat": "JWT"
+                }
+            }
+        },
+        "security": [{"bearerAuth": []}],
         "paths": {
             "/api/health": {
-                "get": {"summary": "Health check", "tags": ["System"],
+                "get": {"summary": "Health check (public)", "tags": ["System"],
+                        "security": [],
                         "responses": {"200": {"description": "Server status"}}}
             },
             "/api/analyze": {
-                "post": {"summary": "Analyze shelf image", "tags": ["Analysis"],
+                "post": {"summary": "Analyze shelf image (auth required)", "tags": ["Analysis"],
                          "requestBody": {"content": {"multipart/form-data": {
                              "schema": {"type": "object", "properties": {
                                  "image": {"type": "string", "format": "binary"},
                                  "detection_mode": {"type": "string", "enum": ["opencv", "yolov8"]},
                                  "store_id": {"type": "integer"}
                              }}}}},
-                         "responses": {"200": {"description": "Analysis results"}}}
+                         "responses": {"200": {"description": "Analysis results"}, "401": {"description": "Auth required"}}}
             },
             "/api/history": {
-                "get": {"summary": "Get analysis history", "tags": ["Analysis"],
+                "get": {"summary": "Get user's analysis history (auth required)", "tags": ["Analysis"],
                         "parameters": [
                             {"name": "store_id", "in": "query", "schema": {"type": "integer"}},
                             {"name": "risk_level", "in": "query", "schema": {"type": "string"}},
                             {"name": "start_date", "in": "query", "schema": {"type": "string", "format": "date"}},
                             {"name": "end_date", "in": "query", "schema": {"type": "string", "format": "date"}},
                         ],
-                        "responses": {"200": {"description": "Analysis history"}}}
+                        "responses": {"200": {"description": "User's analysis history"}}}
             },
             "/api/auth/register": {
-                "post": {"summary": "Register new user", "tags": ["Auth"],
-                         "responses": {"201": {"description": "User created"}}}
+                "post": {"summary": "Register new user (public)", "tags": ["Auth"],
+                         "security": [],
+                         "responses": {"201": {"description": "User created + JWT token"}}}
             },
             "/api/auth/login": {
-                "post": {"summary": "User login", "tags": ["Auth"],
+                "post": {"summary": "User login (public)", "tags": ["Auth"],
+                         "security": [],
                          "responses": {"200": {"description": "JWT token"}}}
             },
             "/api/stores": {
-                "get": {"summary": "List all stores", "tags": ["Stores"],
+                "get": {"summary": "List all stores (auth required)", "tags": ["Stores"],
                         "responses": {"200": {"description": "Store list"}}}
             },
             "/api/admin/analytics": {
-                "get": {"summary": "Admin analytics dashboard data", "tags": ["Admin"],
-                        "responses": {"200": {"description": "Aggregate analytics"}}}
+                "get": {"summary": "Admin analytics (admin only)", "tags": ["Admin"],
+                        "responses": {"200": {"description": "Aggregate analytics across all users"}}}
             },
             "/api/admin/audit-logs": {
-                "get": {"summary": "View audit logs", "tags": ["Admin"],
+                "get": {"summary": "View audit logs (admin only)", "tags": ["Admin"],
                         "responses": {"200": {"description": "Audit log entries"}}}
             },
         }
@@ -129,26 +142,27 @@ def serve_frontend():
     })
 
 
-# ---- API Endpoints ----
+# ---- Public API Endpoints (no auth) ----
 @app.route('/api/health', methods=['GET'])
 def health_check():
-    """Health check endpoint."""
+    """Health check endpoint — public."""
     return jsonify({
         "status": "healthy",
         "service": "Retail Shelf Monitor API",
         "version": "2.0.0",
         "timestamp": datetime.now().isoformat(),
+        "auth_required": True,
         "modules": {
-            "detector_opencv": "YOLOv8-Shelf-Detector (OpenCV)",
-            "detector_yolo": "Available" if detector_yolo.is_available else "Not installed (pip install ultralytics)",
+            "detector_opencv": "OpenCV-Shelf-Detector",
+            "detector_yolo": "Available" if detector_yolo.is_available else "Not installed",
             "kpi_engine": "Random Forest Classifier (9 KPIs)",
-            "sales_data": "Simulated Provider",
             "database": "Connected",
-            "auth": "JWT + bcrypt",
+            "auth": "JWT + bcrypt (Strict)",
         },
-        "demo_mode": os.environ.get('DEMO_MODE', 'true').lower() == 'true',
     })
 
+
+# ---- Protected API Endpoints ----
 
 @app.route('/api/analyze', methods=['POST'])
 @token_required
@@ -156,7 +170,7 @@ def analyze_shelf():
     """
     Main analysis endpoint.
     Accepts shelf image, runs detection, computes KPIs, predicts risk.
-    Now persists results to database.
+    Results are linked to the authenticated user.
     """
     if 'image' not in request.files:
         return jsonify({"error": "No image file provided"}), 400
@@ -178,6 +192,9 @@ def analyze_shelf():
             store_id = int(store_id)
         except (ValueError, TypeError):
             store_id = None
+
+    # Current authenticated user (guaranteed by @token_required)
+    current_user = request.current_user
 
     try:
         # Read image bytes
@@ -211,28 +228,18 @@ def analyze_shelf():
             "historical": historical,
             "detection_mode": detection_mode,
             "store_id": store_id,
+            "user_id": current_user.id,
         }
 
-        # Legacy in-memory storage
-        analysis_history.append({
-            "id": analysis_id,
-            "timestamp": result["timestamp"],
-            "summary": detection_results["summary"],
-            "risk_level": kpi_results["risk_prediction"]["overall_risk"],
-        })
-        if len(analysis_history) > 50:
-            analysis_history.pop(0)
-
-        # Persist to database
+        # Persist to database — linked to authenticated user
         try:
-            user_id = request.current_user.id if hasattr(request, 'current_user') and request.current_user else None
             if not store_id:
                 default_store = Store.query.first()
                 store_id = default_store.id if default_store else None
 
             analysis_record = Analysis.from_result(
                 analysis_id, result,
-                user_id=user_id,
+                user_id=current_user.id,
                 store_id=store_id,
                 filename=file.filename,
                 detection_mode=detection_mode
@@ -241,7 +248,7 @@ def analyze_shelf():
             db.session.commit()
 
             AuditLog.log('upload', f'Image analyzed: {file.filename} (mode: {detection_mode})',
-                         user_id=user_id, ip_address=request.remote_addr)
+                         user_id=current_user.id, ip_address=request.remote_addr)
         except Exception as db_err:
             db.session.rollback()
             print(f"DB persist warning: {db_err}")
@@ -255,7 +262,12 @@ def analyze_shelf():
 @app.route('/api/history', methods=['GET'])
 @token_required
 def get_history():
-    """Get analysis history with filters."""
+    """
+    Get analysis history — USER DATA ISOLATION.
+    Regular users see ONLY their own data.
+    Admins see all data.
+    """
+    current_user = request.current_user
     store_id = request.args.get('store_id', type=int)
     risk_level = request.args.get('risk_level', type=str)
     start_date = request.args.get('start_date', type=str)
@@ -265,6 +277,10 @@ def get_history():
 
     try:
         query = Analysis.query.order_by(Analysis.created_at.desc())
+
+        # USER DATA ISOLATION: non-admin users see only their own data
+        if current_user.role != 'admin':
+            query = query.filter(Analysis.user_id == current_user.id)
 
         if store_id:
             query = query.filter(Analysis.store_id == store_id)
@@ -293,22 +309,24 @@ def get_history():
             "per_page": per_page,
             "pages": (total + per_page - 1) // per_page,
         })
-    except Exception:
-        # Fallback to legacy in-memory history
-        return jsonify({
-            "history": list(reversed(analysis_history)),
-            "total": len(analysis_history),
-        })
+    except Exception as e:
+        return jsonify({"error": str(e), "history": [], "total": 0}), 500
 
 
 @app.route('/api/history/export', methods=['GET'])
 @token_required
 def export_history():
-    """Export analysis history as CSV."""
+    """Export analysis history as CSV — user-isolated."""
+    current_user = request.current_user
     store_id = request.args.get('store_id', type=int)
     risk_level = request.args.get('risk_level', type=str)
 
     query = Analysis.query.order_by(Analysis.created_at.desc())
+
+    # USER DATA ISOLATION
+    if current_user.role != 'admin':
+        query = query.filter(Analysis.user_id == current_user.id)
+
     if store_id:
         query = query.filter(Analysis.store_id == store_id)
     if risk_level:
@@ -340,8 +358,9 @@ def export_history():
 
 
 @app.route('/api/kpi/explain', methods=['POST'])
+@token_required
 def explain_risk():
-    """Provide explainable AI breakdown for a specific risk prediction."""
+    """Provide explainable AI breakdown — auth required."""
     data = request.get_json()
     if not data:
         return jsonify({"error": "No data provided"}), 400
@@ -389,8 +408,9 @@ def explain_risk():
 
 # ---- Store Management ----
 @app.route('/api/stores', methods=['GET'])
+@token_required
 def list_stores():
-    """List all stores."""
+    """List all stores — auth required."""
     stores = Store.query.all()
     return jsonify({"stores": [s.to_dict() for s in stores]})
 
@@ -411,17 +431,17 @@ def create_store():
     db.session.commit()
 
     AuditLog.log('admin_action', f'Store created: {store.store_name}',
-                 user_id=getattr(request, 'current_user', None) and request.current_user.id,
+                 user_id=request.current_user.id,
                  ip_address=request.remote_addr)
 
     return jsonify({"store": store.to_dict()}), 201
 
 
-# ---- Admin Analytics Dashboard ----
+# ---- Admin Analytics Dashboard (admin sees ALL data) ----
 @app.route('/api/admin/analytics', methods=['GET'])
 @admin_required
 def admin_analytics():
-    """Admin-only analytics dashboard data."""
+    """Admin-only analytics dashboard — aggregates ALL users' data."""
     total_uploads = Analysis.query.count()
 
     risk_dist = {
@@ -430,7 +450,6 @@ def admin_analytics():
         "High": Analysis.query.filter_by(risk_level="High").count(),
     }
 
-    # Average KPIs across all analyses
     analyses = Analysis.query.all()
     if analyses:
         avg_confidence = round(sum(a.model_confidence for a in analyses) / len(analyses), 3)
@@ -490,6 +509,16 @@ def admin_analytics():
         for sname in store_breakdown:
             occ_list = store_breakdown[sname]["avg_occupancy"]
             store_breakdown[sname]["avg_occupancy"] = round(sum(occ_list) / len(occ_list), 1) if occ_list else 0
+
+        # Per-user breakdown
+        user_breakdown = {}
+        for a in analyses:
+            uname = a.user.username if a.user else 'Unknown'
+            if uname not in user_breakdown:
+                user_breakdown[uname] = {"count": 0, "risk_high": 0}
+            user_breakdown[uname]["count"] += 1
+            if a.risk_level == "High":
+                user_breakdown[uname]["risk_high"] += 1
     else:
         avg_confidence = 0
         avg_occupancy = 0
@@ -499,6 +528,7 @@ def admin_analytics():
         avg_feature_importance = []
         confidence_buckets = {}
         store_breakdown = {}
+        user_breakdown = {}
 
     return jsonify({
         "total_uploads": total_uploads,
@@ -513,12 +543,13 @@ def admin_analytics():
         "avg_feature_importance": avg_feature_importance,
         "confidence_distribution": confidence_buckets,
         "store_breakdown": store_breakdown,
+        "user_breakdown": user_breakdown,
         "total_users": User.query.count(),
         "total_stores": Store.query.count(),
     })
 
 
-# ---- Audit Logs ----
+# ---- Audit Logs (admin only) ----
 @app.route('/api/admin/audit-logs', methods=['GET'])
 @admin_required
 def get_audit_logs():
@@ -542,16 +573,23 @@ def get_audit_logs():
     })
 
 
-# ---- Cross-Store Comparison ----
+# ---- Cross-Store Comparison (user-isolated) ----
 @app.route('/api/stores/compare', methods=['GET'])
 @token_required
 def compare_stores():
-    """Cross-store risk comparison."""
+    """Cross-store risk comparison — user-isolated for non-admins."""
+    current_user = request.current_user
     stores = Store.query.all()
     comparison = []
 
     for store in stores:
-        analyses = Analysis.query.filter_by(store_id=store.id).order_by(Analysis.created_at.desc()).limit(10).all()
+        store_query = Analysis.query.filter_by(store_id=store.id)
+
+        # USER DATA ISOLATION
+        if current_user.role != 'admin':
+            store_query = store_query.filter_by(user_id=current_user.id)
+
+        analyses = store_query.order_by(Analysis.created_at.desc()).limit(10).all()
         if analyses:
             comparison.append({
                 "store_id": store.id,
@@ -559,7 +597,6 @@ def compare_stores():
                 "location": store.location,
                 "total_analyses": len(analyses),
                 "avg_occupancy": round(sum(a.kpi_shelf_occupancy for a in analyses) / len(analyses), 1),
-                "avg_risk": round(sum(a.risk_level_int for a in analyses) / len(analyses), 2),
                 "latest_risk": analyses[0].risk_level if analyses else "N/A",
                 "high_risk_count": sum(1 for a in analyses if a.risk_level == "High"),
                 "avg_planogram": round(sum(a.kpi_planogram_compliance for a in analyses) / len(analyses), 1),
@@ -583,7 +620,7 @@ def serve_static(path):
 if __name__ == '__main__':
     print("\n" + "=" * 60)
     print("  ShelfGuard AI - Enterprise Edition v2.0")
-    print("  API + Frontend Server")
+    print("  STRICT AUTH MODE — Login required")
     print("  Starting on http://localhost:5000")
     print("  API Docs: http://localhost:5000/api/docs")
     print("=" * 60 + "\n")

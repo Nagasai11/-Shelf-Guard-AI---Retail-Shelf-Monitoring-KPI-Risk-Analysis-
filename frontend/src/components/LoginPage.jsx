@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { ShieldCheck, LogIn, UserPlus, Eye, EyeOff, Mail, Lock, User } from 'lucide-react';
 import './LoginPage.css';
 
-export default function LoginPage({ onLogin, onSkip }) {
+export default function LoginPage({ onLogin }) {
     const [mode, setMode] = useState('login'); // login | register
     const [username, setUsername] = useState('');
     const [email, setEmail] = useState('');
@@ -117,14 +117,8 @@ export default function LoginPage({ onLogin, onSkip }) {
                     </button>
                 </form>
 
-                <div className="login-divider"><span>or</span></div>
-
-                <button className="demo-btn" onClick={onSkip}>
-                    Continue in Demo Mode
-                </button>
-
                 <p className="login-note">
-                    Demo mode allows full access without authentication
+                    🔒 Sign in required to access the system. Your data is private and isolated.
                 </p>
             </div>
         </div>

@@ -13,6 +13,7 @@ const api = axios.create({
 
 // ---- Auth Token Management ----
 let authToken = localStorage.getItem('shelfguard_token') || null;
+let logoutCallback = null;
 
 export const setToken = (token) => {
     authToken = token;
@@ -25,6 +26,10 @@ export const setToken = (token) => {
 
 export const getToken = () => authToken;
 
+export const setLogoutCallback = (cb) => {
+    logoutCallback = cb;
+};
+
 // Add auth header to all requests
 api.interceptors.request.use((config) => {
     if (authToken) {
@@ -32,6 +37,25 @@ api.interceptors.request.use((config) => {
     }
     return config;
 });
+
+// Auto-logout on 401 responses (expired/invalid token)
+api.interceptors.response.use(
+    (response) => response,
+    (error) => {
+        if (error.response && error.response.status === 401) {
+            // Token expired or invalid — force logout
+            const url = error.config?.url || '';
+            // Don't auto-logout on login/register attempts
+            if (!url.includes('/auth/login') && !url.includes('/auth/register')) {
+                setToken(null);
+                if (logoutCallback) {
+                    logoutCallback();
+                }
+            }
+        }
+        return Promise.reject(error);
+    }
+);
 
 // ---- Auth Endpoints ----
 export const loginUser = async (credentials) => {

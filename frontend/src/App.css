@@ -568,3 +568,20 @@
   color: var(--color-text-muted);
   margin-bottom: var(--space-md);
 }
+
+/* Auth loading state */
+.auth-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  gap: var(--space-md);
+  color: var(--color-text-muted);
+  z-index: 1;
+  position: relative;
+}
+
+.auth-loading p {
+  font-size: 0.9rem;
+}
