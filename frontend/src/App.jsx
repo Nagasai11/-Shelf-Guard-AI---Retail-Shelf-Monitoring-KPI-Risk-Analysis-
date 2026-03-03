@@ -1,19 +1,28 @@
 import { useState, useEffect } from 'react';
 import {
-  BarChart3, ShieldCheck, Upload, Activity, Clock,
-  RefreshCw, CheckCircle, AlertTriangle, WifiOff, Wifi,
+  BarChart3, ShieldCheck, Upload, Activity, Clock, Store,
+  RefreshCw, CheckCircle, AlertTriangle, WifiOff, Wifi, Shield,
+  LogOut, Settings,
 } from 'lucide-react';
 import ImageUpload from './components/ImageUpload';
 import DetectionCanvas from './components/DetectionCanvas';
 import KPIDashboard from './components/KPIDashboard';
 import AlertsPanel from './components/AlertsPanel';
-import { analyzeShelfImage, getHealth } from './services/api';
+import HistoryPage from './components/HistoryPage';
+import AdminDashboard from './components/AdminDashboard';
+import LoginPage from './components/LoginPage';
+import {
+  analyzeShelfImage, getHealth, loginUser, registerUser,
+  logoutUser, getStores, getToken, setToken,
+} from './services/api';
 import './App.css';
 
 const TABS = [
   { id: 'upload', label: 'Upload & Detect', icon: Upload },
   { id: 'dashboard', label: 'KPI Dashboard', icon: BarChart3 },
   { id: 'alerts', label: 'Alerts & Actions', icon: Activity },
+  { id: 'history', label: 'History & Trends', icon: Clock },
+  { id: 'admin', label: 'Admin', icon: Shield, adminOnly: true },
 ];
 
 function App() {
@@ -24,27 +33,97 @@ function App() {
   const [serverStatus, setServerStatus] = useState('checking');
   const [analysisCount, setAnalysisCount] = useState(0);
 
-  // Check server health
+  // Auth state
+  const [user, setUser] = useState(null);
+  const [isDemo, setIsDemo] = useState(false);
+  const [showLogin, setShowLogin] = useState(false);
+
+  // Store & detection mode
+  const [stores, setStores] = useState([]);
+  const [selectedStore, setSelectedStore] = useState('');
+  const [detectionMode, setDetectionMode] = useState('opencv');
+
+  // Auto-login from saved token or default to demo
   useEffect(() => {
-    const checkHealth = async () => {
-      try {
-        await getHealth();
-        setServerStatus('connected');
-      } catch {
-        setServerStatus('disconnected');
+    const token = getToken();
+    if (token) {
+      // Try to validate token
+      import('./services/api').then(({ getCurrentUser }) => {
+        getCurrentUser().then((data) => {
+          if (data.user) {
+            setUser(data.user);
+          } else {
+            setIsDemo(true);
+          }
+        }).catch(() => {
+          setToken(null);
+          setIsDemo(true);
+        });
+      });
+    } else {
+      setIsDemo(true);
+    }
+  }, []);
+
+  // Load stores
+  useEffect(() => {
+    getStores().then((data) => setStores(data.stores || [])).catch(() => { });
+  }, []);
+
+  // Check server health with retries (handles Render free-tier cold starts)
+  useEffect(() => {
+    let cancelled = false;
+
+    const checkHealthWithRetry = async (retries = 5, delay = 3000) => {
+      for (let i = 0; i < retries; i++) {
+        if (cancelled) return;
+        try {
+          await getHealth();
+          if (!cancelled) setServerStatus('connected');
+          return;
+        } catch {
+          if (!cancelled) {
+            setServerStatus(i < retries - 1 ? 'waking' : 'disconnected');
+          }
+          if (i < retries - 1) {
+            await new Promise((r) => setTimeout(r, delay));
+          }
+        }
       }
     };
-    checkHealth();
-    const interval = setInterval(checkHealth, 30000);
-    return () => clearInterval(interval);
+
+    checkHealthWithRetry();
+    const interval = setInterval(() => checkHealthWithRetry(2, 2000), 30000);
+    return () => { cancelled = true; clearInterval(interval); };
   }, []);
+
+  const handleLogin = async (mode, credentials) => {
+    if (mode === 'login') {
+      const data = await loginUser(credentials);
+      setUser(data.user);
+      setIsDemo(false);
+      setShowLogin(false);
+    } else {
+      const data = await registerUser(credentials);
+      setUser(data.user);
+      setIsDemo(false);
+      setShowLogin(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    await logoutUser();
+    setUser(null);
+    setIsDemo(true);
+    setActiveTab('upload');
+  };
 
   const handleAnalyze = async (file) => {
     setIsLoading(true);
     setError(null);
 
     try {
-      const result = await analyzeShelfImage(file);
+      const result = await analyzeShelfImage(file, detectionMode, selectedStore || null);
       setAnalysisResult(result);
       setAnalysisCount((c) => c + 1);
       setActiveTab('dashboard');
@@ -64,6 +143,13 @@ function App() {
     setError(null);
     setActiveTab('upload');
   };
+
+  // Show login page if requested
+  if (showLogin && !user) {
+    return <LoginPage onLogin={handleLogin} onSkip={() => { setIsDemo(true); setShowLogin(false); }} />;
+  }
+
+  const isAdmin = user?.role === 'admin' || isDemo;
 
   return (
     <div className="app-root">
@@ -87,9 +173,40 @@ function App() {
         </div>
 
         <div className="header-right">
+          {/* Store Selector */}
+          {stores.length > 0 && (
+            <select
+              className="store-selector"
+              value={selectedStore}
+              onChange={(e) => setSelectedStore(e.target.value)}
+              title="Select Store"
+            >
+              <option value="">All Stores</option>
+              {stores.map((s) => (
+                <option key={s.id} value={s.id}>{s.store_name}</option>
+              ))}
+            </select>
+          )}
+
+          {/* Detection Mode Toggle */}
+          <div className="detection-mode-toggle" title="Detection Mode">
+            <Settings size={12} />
+            <select
+              value={detectionMode}
+              onChange={(e) => setDetectionMode(e.target.value)}
+            >
+              <option value="opencv">OpenCV</option>
+              <option value="yolov8">YOLOv8</option>
+            </select>
+          </div>
+
           <div className={`server-status ${serverStatus}`}>
             {serverStatus === 'connected' ? <Wifi size={12} /> : <WifiOff size={12} />}
-            <span>{serverStatus === 'connected' ? 'API Connected' : 'API Offline'}</span>
+            <span>
+              {serverStatus === 'connected' ? 'API Connected'
+                : serverStatus === 'waking' ? 'Waking up...'
+                  : 'API Offline'}
+            </span>
           </div>
 
           {analysisResult && (
@@ -105,6 +222,23 @@ function App() {
               New Analysis
             </button>
           )}
+
+          {/* User / Auth */}
+          {user ? (
+            <div className="user-menu">
+              <span className="user-badge">
+                <Shield size={12} />
+                {user.username} ({user.role})
+              </span>
+              <button className="logout-btn" onClick={handleLogout}>
+                <LogOut size={14} />
+              </button>
+            </div>
+          ) : (
+            <button className="login-header-btn" onClick={() => setShowLogin(true)}>
+              Sign In
+            </button>
+          )}
         </div>
       </header>
 
@@ -112,8 +246,9 @@ function App() {
       <nav className="tab-nav" id="tab-nav">
         <div className="tab-list">
           {TABS.map((tab) => {
+            if (tab.adminOnly && !isAdmin) return null;
             const Icon = tab.icon;
-            const isDisabled = tab.id !== 'upload' && !analysisResult;
+            const isDisabled = ['dashboard', 'alerts'].includes(tab.id) && !analysisResult;
             const alertCount = tab.id === 'alerts' && analysisResult
               ? analysisResult?.kpi_analysis?.alerts?.length || 0
               : 0;
@@ -157,10 +292,11 @@ function App() {
             <div className="loading-card glass-card">
               <div className="loading-spinner" />
               <h3>Analyzing Shelf Image</h3>
+              <p className="loading-mode">Using: {detectionMode === 'yolov8' ? 'YOLOv8 Advanced' : 'OpenCV Standard'}</p>
               <div className="loading-steps">
                 <div className="loading-step active">
                   <div className="step-dot" />
-                  <span>Running Object Detection (YOLOv8)</span>
+                  <span>Running Object Detection ({detectionMode === 'yolov8' ? 'YOLOv8' : 'OpenCV'})</span>
                 </div>
                 <div className="loading-step pending">
                   <div className="step-dot" />
@@ -201,14 +337,14 @@ function App() {
                       <BarChart3 size={24} />
                     </div>
                     <h4>Object Detection</h4>
-                    <p>YOLOv8 & Deformable DETR powered product detection with bounding box visualization</p>
+                    <p>YOLOv8 & OpenCV powered product detection with bounding box visualization</p>
                   </div>
                   <div className="feature-card glass-card animate-fade-in stagger-2">
                     <div className="feature-icon" style={{ background: 'rgba(6, 182, 212, 0.1)', color: '#22d3ee' }}>
                       <Activity size={24} />
                     </div>
                     <h4>KPI Analytics</h4>
-                    <p>Track shelf occupancy, empty slots, product density, and revenue at risk</p>
+                    <p>Track 9 KPIs including shelf occupancy, planogram compliance, and revenue at risk</p>
                   </div>
                   <div className="feature-card glass-card animate-fade-in stagger-3">
                     <div className="feature-icon" style={{ background: 'rgba(16, 185, 129, 0.1)', color: '#34d399' }}>
@@ -221,8 +357,8 @@ function App() {
                     <div className="feature-icon" style={{ background: 'rgba(245, 158, 11, 0.1)', color: '#fbbf24' }}>
                       <Clock size={24} />
                     </div>
-                    <h4>Real-Time Alerts</h4>
-                    <p>Instant notifications for critical shelf conditions with actionable recommendations</p>
+                    <h4>Enterprise Features</h4>
+                    <p>Multi-store management, historical analytics, audit logging, and role-based access</p>
                   </div>
                 </div>
               )}
@@ -247,13 +383,25 @@ function App() {
               />
             </div>
           )}
+
+          {activeTab === 'history' && (
+            <div className="content-section">
+              <HistoryPage stores={stores} selectedStore={selectedStore} />
+            </div>
+          )}
+
+          {activeTab === 'admin' && isAdmin && (
+            <div className="content-section">
+              <AdminDashboard />
+            </div>
+          )}
         </div>
       </main>
 
       {/* Footer */}
       <footer className="app-footer" id="app-footer">
-        <span>ShelfGuard AI — Retail Shelf Monitoring & KPI Risk Analysis System</span>
-        <span className="footer-tech">React · Flask · YOLOv8 · Random Forest · OpenCV</span>
+        <span>ShelfGuard AI v2.0 — Retail Shelf Monitoring & KPI Risk Analysis System</span>
+        <span className="footer-tech">React · Flask · OpenCV · YOLOv8 · Random Forest · PostgreSQL · JWT</span>
       </footer>
     </div>
   );

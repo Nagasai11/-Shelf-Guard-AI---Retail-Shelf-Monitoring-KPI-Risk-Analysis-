@@ -171,7 +171,11 @@ class KPIEngine:
                 "target": 0,
                 "description": "Estimated weekly revenue at risk due to shelf gaps",
             },
+            "planogram_compliance": self._compute_planogram_compliance(
+                visual_signals, shelf_occupancy, misplaced_ratio, shelf_balance
+            ),
         }
+
 
         # Predict overall risk
         risk_prediction = self._predict_risk(
@@ -239,6 +243,48 @@ class KPIEngine:
                 "n_estimators": 100,
                 "confidence": round(float(max(probabilities)), 3),
             },
+        }
+
+    def _compute_planogram_compliance(self, visual_signals, occupancy, misplaced_ratio, shelf_balance):
+        """
+        Compute Planogram Compliance Score (0-100%).
+        Compares actual product distribution across shelf levels against ideal distribution.
+        """
+        category_dist = visual_signals.get("category_distribution", {})
+        total_shelves = visual_signals.get("total_shelves", 1)
+
+        # Component scores
+        balance_score = shelf_balance  # Higher = more balanced = more compliant
+        placement_score = 1.0 - misplaced_ratio  # Lower misplacement = better
+        occupancy_score = min(1.0, occupancy / 0.85)  # Relative to 85% target
+
+        # Category distribution uniformity
+        if category_dist:
+            counts = list(category_dist.values())
+            if len(counts) > 1:
+                ideal_per_cat = sum(counts) / len(counts)
+                deviation = sum(abs(c - ideal_per_cat) for c in counts) / (sum(counts) + 1)
+                distribution_score = max(0, 1.0 - deviation)
+            else:
+                distribution_score = 0.7
+        else:
+            distribution_score = 0.5
+
+        # Weighted compliance
+        compliance = (
+            balance_score * 0.30 +
+            placement_score * 0.25 +
+            occupancy_score * 0.25 +
+            distribution_score * 0.20
+        )
+        compliance_pct = round(min(100, max(0, compliance * 100)), 1)
+
+        return {
+            "value": compliance_pct,
+            "unit": "%",
+            "status": self._get_status(compliance, [0.8, 0.6]),
+            "target": 90,
+            "description": "Planogram compliance score based on product distribution",
         }
 
     def _get_status(self, value, thresholds):

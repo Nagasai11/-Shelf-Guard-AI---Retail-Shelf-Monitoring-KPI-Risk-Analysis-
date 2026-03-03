@@ -1,0 +1,130 @@
+.audit-log-view {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-md);
+}
+
+.audit-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--space-sm);
+}
+
+.audit-header h3 {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 1rem;
+    color: var(--color-text);
+    margin: 0;
+}
+
+.audit-filters {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+}
+
+.audit-filters select {
+    padding: 6px 12px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 6px;
+    color: var(--color-text);
+    font-size: 0.8rem;
+}
+
+.audit-count {
+    font-size: 0.75rem;
+    color: var(--color-text-muted);
+}
+
+.audit-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.audit-entry {
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
+    padding: 10px 14px;
+    background: rgba(255, 255, 255, 0.02);
+    border-radius: 8px;
+    border-left: 3px solid transparent;
+    transition: background 0.2s;
+}
+
+.audit-entry:hover {
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.audit-action-badge {
+    padding: 3px 10px;
+    border-radius: 6px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.audit-details {
+    flex: 1;
+    min-width: 0;
+}
+
+.audit-user {
+    font-weight: 600;
+    color: var(--color-text);
+    font-size: 0.85rem;
+    margin-right: 8px;
+}
+
+.audit-detail-text {
+    color: var(--color-text-muted);
+    font-size: 0.8rem;
+}
+
+.audit-meta {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 2px;
+    font-size: 0.7rem;
+    color: var(--color-text-muted);
+    white-space: nowrap;
+}
+
+.audit-loading,
+.audit-empty {
+    text-align: center;
+    padding: var(--space-xl);
+    color: var(--color-text-muted);
+}
+
+.audit-log-view .pagination {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-md);
+    padding: var(--space-sm) 0;
+    color: var(--color-text-muted);
+    font-size: 0.85rem;
+}
+
+.audit-log-view .pagination button {
+    padding: 6px 10px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 6px;
+    color: var(--color-text);
+    cursor: pointer;
+}
+
+.audit-log-view .pagination button:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+}

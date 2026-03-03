@@ -13,6 +13,11 @@ frontend/dist/
 # Uploads
 backend/uploads/
 
+# Database
+*.db
+*.sqlite3
+instance/
+
 # IDE
 .vscode/
 .idea/
