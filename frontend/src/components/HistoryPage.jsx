@@ -7,7 +7,10 @@ import {
     Tooltip, ResponsiveContainer, Legend,
 } from 'recharts';
 import jsPDF from 'jspdf';
-import 'jspdf-autotable';
+import { applyPlugin } from 'jspdf-autotable';
+
+// Explicitly register the autoTable plugin on jsPDF prototype
+applyPlugin(jsPDF);
 import { getHistory } from '../services/api';
 import './HistoryPage.css';
 
@@ -79,55 +82,63 @@ export default function HistoryPage({ stores, selectedStore }) {
 
     // ---- CSV Export (Client-side from loaded data) ----
     const handleExportCSV = () => {
-        if (analyses.length === 0) {
-            alert('No data to export. Upload and analyze some shelf images first.');
-            return;
+        try {
+            if (analyses.length === 0) {
+                alert('No data to export. Upload and analyze some shelf images first.');
+                return;
+            }
+
+            const headers = [
+                'Analysis ID', 'Date', 'Store', 'Detection Mode',
+                'Products', 'Empty Slots', 'Misplaced',
+                'Shelf Occupancy (%)', 'Empty Severity (%)', 'Shelf Imbalance (%)',
+                'Misplacement Rate (%)', 'Product Density', 'Sell-Through (%)',
+                'Stockout Prob (%)', 'Revenue at Risk ($)', 'Planogram Compliance (%)',
+                'Risk Level', 'Model Confidence (%)',
+            ];
+
+            const rows = analyses.map((a) => [
+                a.analysis_id || '',
+                a.created_at ? new Date(a.created_at).toLocaleString() : '',
+                a.store_name || 'N/A',
+                a.detection_mode || 'opencv',
+                a.visual_signals?.product_count ?? '',
+                a.visual_signals?.empty_slot_count ?? '',
+                a.visual_signals?.misplaced_count ?? '',
+                a.kpis?.shelf_occupancy ?? '',
+                a.kpis?.empty_severity ?? '',
+                a.kpis?.shelf_imbalance ?? '',
+                a.kpis?.misplacement_rate ?? '',
+                a.kpis?.product_density ?? '',
+                a.kpis?.sell_through ?? '',
+                a.kpis?.stockout_prob ?? '',
+                a.kpis?.revenue_at_risk ?? '',
+                a.kpis?.planogram_compliance ?? '',
+                a.risk?.level || '',
+                a.risk?.model_confidence ? (a.risk.model_confidence * 100).toFixed(1) : '',
+            ]);
+
+            const csvContent = [
+                headers.join(','),
+                ...rows.map((r) => r.map((cell) => `"${cell}"`).join(',')),
+            ].join('\n');
+
+            const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.setAttribute('href', url);
+            link.setAttribute('download', `ShelfGuard_Report_${new Date().toISOString().slice(0, 10)}.csv`);
+            link.style.display = 'none';
+            document.body.appendChild(link);
+            link.click();
+            setTimeout(() => {
+                document.body.removeChild(link);
+                window.URL.revokeObjectURL(url);
+            }, 100);
+        } catch (err) {
+            console.error('CSV export error:', err);
+            alert('CSV export failed: ' + err.message);
         }
-
-        const headers = [
-            'Analysis ID', 'Date', 'Store', 'Detection Mode',
-            'Products', 'Empty Slots', 'Misplaced',
-            'Shelf Occupancy (%)', 'Empty Severity (%)', 'Shelf Imbalance (%)',
-            'Misplacement Rate (%)', 'Product Density', 'Sell-Through (%)',
-            'Stockout Prob (%)', 'Revenue at Risk ($)', 'Planogram Compliance (%)',
-            'Risk Level', 'Model Confidence (%)',
-        ];
-
-        const rows = analyses.map((a) => [
-            a.analysis_id || '',
-            a.created_at ? new Date(a.created_at).toLocaleString() : '',
-            a.store_name || 'N/A',
-            a.detection_mode || 'opencv',
-            a.visual_signals?.product_count ?? '',
-            a.visual_signals?.empty_slot_count ?? '',
-            a.visual_signals?.misplaced_count ?? '',
-            a.kpis?.shelf_occupancy ?? '',
-            a.kpis?.empty_severity ?? '',
-            a.kpis?.shelf_imbalance ?? '',
-            a.kpis?.misplacement_rate ?? '',
-            a.kpis?.product_density ?? '',
-            a.kpis?.sell_through ?? '',
-            a.kpis?.stockout_prob ?? '',
-            a.kpis?.revenue_at_risk ?? '',
-            a.kpis?.planogram_compliance ?? '',
-            a.risk?.level || '',
-            a.risk?.model_confidence ? (a.risk.model_confidence * 100).toFixed(1) : '',
-        ]);
-
-        const csvContent = [
-            headers.join(','),
-            ...rows.map((r) => r.map((cell) => `"${cell}"`).join(',')),
-        ].join('\n');
-
-        const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `ShelfGuard_Analysis_Report_${new Date().toISOString().slice(0, 10)}.csv`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
     };
 
     // ---- PDF Export (using jsPDF + autoTable) ----
@@ -147,7 +158,7 @@ export default function HistoryPage({ stores, selectedStore }) {
             doc.setTextColor(255, 255, 255);
             doc.setFontSize(20);
             doc.setFont('helvetica', 'bold');
-            doc.text('ShelfGuard AI — Analysis Report', 14, 16);
+            doc.text('ShelfGuard AI - Analysis Report', 14, 16);
             doc.setFontSize(10);
             doc.setFont('helvetica', 'normal');
             doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 24);
@@ -178,6 +189,7 @@ export default function HistoryPage({ stores, selectedStore }) {
                 ['Total Revenue at Risk', `$${totalRevAtRisk.toFixed(2)}`],
             ];
 
+            // Use functional API: autoTable(doc, options)
             doc.autoTable({
                 startY: 50,
                 head: [['Metric', 'Value']],
@@ -227,7 +239,6 @@ export default function HistoryPage({ stores, selectedStore }) {
                 alternateRowStyles: { fillColor: [241, 245, 249] },
                 margin: { left: 14, right: 14 },
                 didParseCell: (data) => {
-                    // Color-code risk column
                     if (data.column.index === 11 && data.section === 'body') {
                         const val = data.cell.raw;
                         if (val === 'High') {
@@ -247,18 +258,14 @@ export default function HistoryPage({ stores, selectedStore }) {
             // ---- Feature Importance (from latest analysis) ----
             if (analyses[0]?.feature_importance?.length > 0) {
                 const fiY = doc.lastAutoTable.finalY + 12;
+                const needsNewPage = fiY > doc.internal.pageSize.getHeight() - 40;
 
-                // Check if we need a new page
-                if (fiY > doc.internal.pageSize.getHeight() - 40) {
+                if (needsNewPage) {
                     doc.addPage();
-                    doc.setFontSize(13);
-                    doc.setFont('helvetica', 'bold');
-                    doc.text('Feature Importance (Latest Analysis)', 14, 20);
-                } else {
-                    doc.setFontSize(13);
-                    doc.setFont('helvetica', 'bold');
-                    doc.text('Feature Importance (Latest Analysis)', 14, fiY);
                 }
+                doc.setFontSize(13);
+                doc.setFont('helvetica', 'bold');
+                doc.text('Feature Importance (Latest Analysis)', 14, needsNewPage ? 20 : fiY);
 
                 const fiData = analyses[0].feature_importance.map((f) => [
                     f.feature,
@@ -266,7 +273,7 @@ export default function HistoryPage({ stores, selectedStore }) {
                 ]);
 
                 doc.autoTable({
-                    startY: (fiY > doc.internal.pageSize.getHeight() - 40) ? 25 : fiY + 5,
+                    startY: needsNewPage ? 25 : fiY + 5,
                     head: [['Feature', 'Importance']],
                     body: fiData,
                     theme: 'grid',
@@ -284,7 +291,7 @@ export default function HistoryPage({ stores, selectedStore }) {
                 doc.setFontSize(7);
                 doc.setTextColor(148, 163, 184);
                 doc.text(
-                    `ShelfGuard AI — Retail Shelf Monitoring & KPI Risk Analysis | Page ${i} of ${pageCount}`,
+                    `ShelfGuard AI - Retail Shelf Monitoring & KPI Risk Analysis | Page ${i} of ${pageCount}`,
                     pageWidth / 2, doc.internal.pageSize.getHeight() - 5,
                     { align: 'center' }
                 );
@@ -293,7 +300,7 @@ export default function HistoryPage({ stores, selectedStore }) {
             doc.save(`ShelfGuard_Report_${new Date().toISOString().slice(0, 10)}.pdf`);
         } catch (err) {
             console.error('PDF export error:', err);
-            alert('PDF export failed. Please try again.');
+            alert('PDF export failed: ' + err.message);
         }
     };
 
