@@ -17,7 +17,7 @@
     align-items: center;
     gap: 8px;
     font-size: 1rem;
-    color: var(--color-text);
+    color: var(--color-text-primary);
     margin: 0;
 }
 
@@ -29,10 +29,10 @@
 
 .audit-filters select {
     padding: 6px 12px;
-    background: rgba(255, 255, 255, 0.04);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(0, 0, 0, 0.02);
+    border: 1px solid rgba(0, 0, 0, 0.08);
     border-radius: 6px;
-    color: var(--color-text);
+    color: var(--color-text-primary);
     font-size: 0.8rem;
 }
 
@@ -52,14 +52,14 @@
     align-items: center;
     gap: var(--space-md);
     padding: 10px 14px;
-    background: rgba(255, 255, 255, 0.02);
+    background: rgba(0, 0, 0, 0.02);
     border-radius: 8px;
     border-left: 3px solid transparent;
     transition: background 0.2s;
 }
 
 .audit-entry:hover {
-    background: rgba(255, 255, 255, 0.04);
+    background: rgba(0, 0, 0, 0.03);
 }
 
 .audit-action-badge {
@@ -78,7 +78,7 @@
 
 .audit-user {
     font-weight: 600;
-    color: var(--color-text);
+    color: var(--color-text-primary);
     font-size: 0.85rem;
     margin-right: 8px;
 }
@@ -117,10 +117,10 @@
 
 .audit-log-view .pagination button {
     padding: 6px 10px;
-    background: rgba(255, 255, 255, 0.04);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(0, 0, 0, 0.03);
+    border: 1px solid rgba(0, 0, 0, 0.08);
     border-radius: 6px;
-    color: var(--color-text);
+    color: var(--color-text-primary);
     cursor: pointer;
 }
 

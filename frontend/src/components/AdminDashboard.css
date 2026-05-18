@@ -16,7 +16,7 @@
     display: flex;
     align-items: center;
     gap: var(--space-sm);
-    color: var(--color-text);
+    color: var(--color-text-primary);
 }
 
 .admin-title h2 {
@@ -34,7 +34,7 @@
     align-items: center;
     gap: 6px;
     padding: 8px 16px;
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(0, 0, 0, 0.08);
     border-radius: 8px;
     background: transparent;
     color: var(--color-text-muted);
@@ -44,9 +44,9 @@
 }
 
 .admin-tab.active {
-    background: rgba(99, 102, 241, 0.15);
-    color: var(--color-primary);
-    border-color: var(--color-primary);
+    background: rgba(99, 102, 241, 0.1);
+    color: var(--color-accent-primary);
+    border-color: var(--color-accent-primary);
 }
 
 .admin-summary {
@@ -63,7 +63,7 @@
 }
 
 .summary-card svg {
-    color: var(--color-primary);
+    color: var(--color-accent-primary);
     flex-shrink: 0;
 }
 
@@ -71,7 +71,7 @@
     display: block;
     font-size: 1.6rem;
     font-weight: 700;
-    color: var(--color-text);
+    color: var(--color-text-primary);
 }
 
 .summary-label {
@@ -82,7 +82,7 @@
 
 .admin-avg-kpis h3 {
     font-size: 1rem;
-    color: var(--color-text);
+    color: var(--color-text-primary);
     margin: 0 0 var(--space-md);
 }
 
@@ -100,7 +100,7 @@
     display: block;
     font-size: 1.3rem;
     font-weight: 700;
-    color: var(--color-primary);
+    color: var(--color-accent-primary);
 }
 
 .avg-kpi-label {
@@ -118,7 +118,7 @@
 
 .admin-charts .chart-card h3 {
     font-size: 0.9rem;
-    color: var(--color-text);
+    color: var(--color-text-primary);
     margin: 0 0 var(--space-md);
 }
 

@@ -52,20 +52,20 @@
 }
 
 .toggle-btn.active {
-    background: rgba(99, 102, 241, 0.1);
-    border-color: rgba(99, 102, 241, 0.3);
-    color: var(--color-accent-primary-light);
+    background: rgba(99, 102, 241, 0.08);
+    border-color: rgba(99, 102, 241, 0.25);
+    color: var(--color-accent-primary);
 }
 
 .toggle-btn.empty.active {
     background: var(--color-warning-bg);
-    border-color: rgba(245, 158, 11, 0.3);
+    border-color: rgba(217, 119, 6, 0.25);
     color: var(--color-warning);
 }
 
 .toggle-btn.misplaced.active {
     background: var(--color-critical-bg);
-    border-color: rgba(239, 68, 68, 0.3);
+    border-color: rgba(220, 38, 38, 0.25);
     color: var(--color-critical);
 }
 
@@ -94,7 +94,7 @@
 }
 
 .zoom-btn:hover {
-    background: rgba(255, 255, 255, 0.08);
+    background: rgba(0, 0, 0, 0.06);
     color: var(--color-text-primary);
 }
 
@@ -113,7 +113,7 @@
     overflow: auto;
     border-radius: var(--radius-md);
     border: 1px solid var(--border-color);
-    background: rgba(0, 0, 0, 0.3);
+    background: rgba(0, 0, 0, 0.02);
     max-height: 500px;
 }
 
@@ -144,7 +144,7 @@
 .bbox-overlay.product:hover,
 .bbox-overlay.product.selected {
     border-color: var(--color-accent-primary);
-    background: rgba(99, 102, 241, 0.15);
+    background: rgba(99, 102, 241, 0.12);
     z-index: 10;
 }
 
@@ -155,22 +155,22 @@
 
 .bbox-overlay.empty.high {
     border-color: var(--color-critical);
-    background: rgba(239, 68, 68, 0.1);
+    background: rgba(220, 38, 38, 0.08);
 }
 
 .bbox-overlay.empty.medium {
     border-color: var(--color-warning);
-    background: rgba(245, 158, 11, 0.1);
+    background: rgba(217, 119, 6, 0.08);
 }
 
 .bbox-overlay.empty.low {
     border-color: var(--color-accent-secondary);
-    background: rgba(6, 182, 212, 0.08);
+    background: rgba(8, 145, 178, 0.06);
 }
 
 .bbox-overlay.misplaced {
     border: 2px solid var(--color-critical);
-    background: rgba(239, 68, 68, 0.12);
+    background: rgba(220, 38, 38, 0.1);
     animation: glow 1.5s ease-in-out infinite;
 }
 
@@ -188,7 +188,7 @@
 
 .empty-label {
     background: var(--color-warning);
-    color: #1a1a1a;
+    color: #fff;
 }
 
 .misplaced-label {
@@ -202,7 +202,7 @@
     top: -76px;
     left: 50%;
     transform: translateX(-50%);
-    background: rgba(15, 23, 42, 0.95);
+    background: rgba(255, 255, 255, 0.96);
     border: 1px solid var(--border-color-hover);
     border-radius: var(--radius-sm);
     padding: 8px 12px;
@@ -214,10 +214,11 @@
     z-index: 20;
     animation: fadeIn 0.2s ease-out;
     backdrop-filter: blur(12px);
+    box-shadow: var(--shadow-md);
 }
 
 .bbox-tooltip strong {
-    color: var(--color-accent-primary-light);
+    color: var(--color-accent-primary);
     font-size: 0.8rem;
 }
 
@@ -247,23 +248,23 @@
 }
 
 .stat-chip.products {
-    color: var(--color-accent-primary-light);
-    border-color: rgba(99, 102, 241, 0.2);
+    color: var(--color-accent-primary);
+    border-color: rgba(99, 102, 241, 0.15);
 }
 
 .stat-chip.empty {
     color: var(--color-warning);
-    border-color: rgba(245, 158, 11, 0.2);
+    border-color: rgba(217, 119, 6, 0.15);
 }
 
 .stat-chip.misplaced {
     color: var(--color-critical);
-    border-color: rgba(239, 68, 68, 0.2);
+    border-color: rgba(220, 38, 38, 0.15);
 }
 
 .stat-chip.shelves {
     color: var(--color-accent-secondary);
-    border-color: rgba(6, 182, 212, 0.2);
+    border-color: rgba(8, 145, 178, 0.15);
 }
 
 .stat-chip.model {
